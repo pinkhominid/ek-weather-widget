@@ -1,19 +1,20 @@
 {
   "name": "ek-weather-widget",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "authors": [
-    "Anonymous <anonymous@example.com>"
+    "pinkhominid <pinkhominid@birdbomb.com>"
   ],
-  "description": "An element providing a solution to no problem in particular.",
+  "description": "A web component element that provides simple weather data for a geolocation.",
   "keywords": [
     "web-component",
     "web-components",
     "polymer",
-    "seed"
+    "weather",
+    "widget"
   ],
   "main": "ek-weather-widget.html",
-  "license": "http://polymer.github.io/LICENSE.txt",
-  "homepage": "https://github.com/<USERNAME>/seed-element/",
+  "license": "https://raw.githubusercontent.com/pinkhominid/ek-weather-widget/master/LICENSE",
+  "homepage": "https://github.com/pinkhominid/ek-weather-widget",
   "ignore": [
     "/.*",
     "/test/",
