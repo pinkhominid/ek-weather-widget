@@ -1,3 +1,3 @@
 # ek-weather-widget
 
-An element that provides simple weather data for a geolocation.
+A web component element that provides simple weather data for a geolocation.
