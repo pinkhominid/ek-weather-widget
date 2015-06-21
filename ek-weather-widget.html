@@ -9,7 +9,6 @@ tests
 README details
 trigger events on temperature/summary change
 switch to rafSetTimeout
-pluggable weather data parser
 animated icons?
 loading spinner?
 click for forecast?
@@ -199,12 +198,28 @@ A web component element that provides simple weather data for a geolocation.
       url = url.replace(/\{\{\s*latitude\s*\}\}/, self.latitude).replace(/\{\{\s*longitude\s*\}\}/, self.longitude);
       xhr.open('GET', url);
       xhr.onload = function(e) {
-        var dataPoint = JSON.parse(this.response).objects[0];
-        self.summary = dataPoint.weather.status + ' ' + (dataPoint.sun_altitude >= 0 ? 'day' : 'night');
-        self.temperature = Math.round(self._convertTemperature(dataPoint.weather.measured.temperature, 'K', self.scale));
+        var data = self.dataMapFn(JSON.parse(this.response));
+        self.temperature = Math.round(self._convertTemperature(data.temperature,  data.dataScale, self.scale));
+        self.summary = data.summary;
       };
       xhr.send();
       return xhr;
+    },
+
+    /**
+     * Overridable function to filter and map weather service data to a single
+     * current weather object.
+     *
+     * @param {String} data Data from the weather service.
+     * @return {Number} An object with temperature, dataScale, and summary properties.
+     */
+    dataMapFn: function(data) {
+      var current = data.objects[0];
+      return {
+        temperature: current.weather.measured.temperature,
+        dataScale: 'K',
+        summary: current.weather.status + ' ' + (current.sun_altitude >= 0 ? 'day' : 'night')
+      };
     },
 
     _watchPosition: function(on) {
