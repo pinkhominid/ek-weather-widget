@@ -1,0 +1,291 @@
+<!--
+@license
+Enrichment Kit Weather Widget <https://github.com/pinkhominid/ek-weather-widget>
+pinkhominid <pinkhominid@birdbomb.com>
+MIT License <https://raw.githubusercontent.com/pinkhominid/ek-weather-widget/master/LICENSE>
+-->
+<link rel="import" href="../polymer/polymer.html">
+
+<!--
+Enrichment Kit Weather Widget
+
+A web component that provides simple weather data. Built with Polymer 1.0.
+
+    <ek-weather-widget geolocate></ek-weather-widget>
+
+@demo
+-->
+<dom-module id="ek-weather-widget">
+
+  <link rel="import" type="css" href="../weather-icons/css/weather-icons.css">
+
+  <style>
+    :host {
+      box-sizing: border-box;
+    }
+  </style>
+
+  <template>
+    <i class$="{{ _iconClass }}"></i>
+    <span>{{ _getTemperatureDisplay(temperature, scale) }}</span>
+  </template>
+
+</dom-module>
+
+<script>
+
+;(function (Polymer) {
+  'use strict';
+
+  Polymer({
+
+    is: 'ek-weather-widget',
+
+    properties: {
+      /**
+       * The scale to use for displaying temperature data. Defaults to celsius.
+       * Options are 'C' (celsius), 'F' (fahrenheit), and 'K' (kelvin).
+       */
+      scale: {
+        type: String,
+        value: 'C',
+        observer: '_scaleChanged'
+      },
+
+      showScale: Boolean,
+
+      /** The interval in minutes to refresh weather data. Defaults to one hour. */
+      refreshInterval: {
+        type: Number,
+        value: 60
+      },
+
+      /** Automatically get the current position via geolocation. */
+      geolocate: Boolean,
+
+      /** Decimal places to round geolocation coordinates to. Defaults to 3. */
+      accuracy: {
+        type: Number,
+        value: 3
+      },
+
+      /** North-south geographic coordinate. */
+      latitude: Number,
+
+      /** East-west geographic coordinate. */
+      longitude: Number,
+
+      /**
+       * URL for the weather data provider
+       * with '{{latitude}}' and '{{longitude}}' placeholders.
+       *
+       * Defaults to Metwit api (http://metwit.com/weather-api/docs/resources/weather/).
+       */
+      url: {
+        type: String,
+        value: 'https://api.metwit.com/v2/weather/?location_lat={{latitude}}&location_lng={{longitude}}'
+      },
+
+      /**
+       * Mapping of weather summary to icon class.
+       *
+       * Defaults to Metwit statuses (http://metwit.com/weather-api/docs/resources/weather/)
+       * with 'day/night' appended.
+       * Defaults to Weather Icons classes (http://erikflowers.github.io/weather-icons/).
+       */
+      classMap: {
+        type: Object,
+        value: function() {
+          return {
+            'clear': 'wi wi-day-sunny',
+            'clear day': 'wi wi-day-sunny',
+            'clear night': 'wi wi-night-clear',
+
+            'rainy': 'wi wi-rain',
+            'rainy day': 'wi wi-day-rain',
+            'rainy night': 'wi wi-night-alt-rain',
+
+            'stormy': 'wi wi-thunderstorm',
+            'stormy day': 'wi wi-day-thunderstorm',
+            'stormy night': 'wi wi-night-alt-thunderstorm',
+
+            'snowy': 'wi wi-snow',
+            'snowy day': 'wi wi-day-snow',
+            'snowy night': 'wi wi-night-alt-snow',
+
+            'snow flurries': 'wi wi-snow',
+            'snow flurries day': 'wi wi-day-snow',
+            'snow flurries night': 'wi wi-night-alt-snow',
+
+            'partly cloudy': 'wi wi-cloud',
+            'partly cloudy day': 'wi wi-day-cloudy',
+            'partly cloudy night': 'wi wi-night-alt-cloudy',
+
+            'cloudy': 'wi wi-cloudy',
+            'cloudy day': 'wi wi-cloudy',
+            'cloudy night': 'wi wi-cloudy',
+
+            'windy': 'wi wi-windy',
+            'windy day': 'wi wi-day-windy',
+            'windy night': 'wi wi-windy',
+
+            'hailing': 'wi wi-hail',
+            'hailing day': 'wi wi-day-hail',
+            'hailing night': 'wi wi-night-alt-hail',
+
+            'foggy': 'wi wi-fog',
+            'foggy day': 'wi wi-day-fog',
+            'foggy night': 'wi wi-night-fog'
+          };
+        }
+      }
+
+    },
+
+    observers: [
+      '_watchPosition(geolocate)',
+      '_requestWeather(url, latitude, longitude)',
+      '_updateIcon(summary, classMap)',
+      '_refreshIntervalChanged(refreshInterval)',
+      '_weatherChanged(temperature, scale, summary)'
+    ],
+
+    // Element Lifecycle
+
+    detached: function() {
+      this._rafClearInterval(this._raf);
+      this._watchPosition(false);
+      if (this._xhr) this._xhr.abort();
+    },
+
+    // Element Behavior
+
+    /**
+     * Convert temperature to a new scale.
+     *
+     * @param {Number} temperature The temperature to convert.
+     * @param {String} scale The current scale of the given temperature.
+     * @param {String} newScale The desired scale of the temperature.
+     * @return {Number} The temperature in the desired scale.
+     */
+    _convertTemperature: function(temperature, scale, newScale) {
+      switch (scale + newScale) {
+        case 'KC': return temperature - 273.15;
+        case 'KF': return (temperature - 273.15) * 1.8 + 32;
+        case 'CK': return temperature + 273.15;
+        case 'CF': return temperature * 1.8 + 32;
+        case 'FK': return (temperature - 32) / 1.8 - 273.15;
+        case 'FC': return (temperature - 32) / 1.8;
+        default: return '';
+      }
+    },
+
+    _scaleChanged: function(newValue, oldValue) {
+      this.temperature = this._convertTemperature(this.temperature, oldValue, newValue);
+    },
+
+    _updateIcon: function(summary, classMap) {
+      this._iconClass = classMap[summary];
+    },
+
+    _weatherChanged: function(temperature, scale, summary) {
+      this.fire('ek-weather-changed', { temperature: temperature, scale: scale, summary: summary });
+    },
+
+    _refreshIntervalChanged: function(interval) {
+      var self = this;
+      self._rafClearInterval(self._raf);
+      self._raf = self._rafSetInterval(function() {
+        self._requestWeather(self.url, self.latitude, self.longitude);
+      }, interval * 60000); // convert to milliseconds
+    },
+
+    _requestWeather: function(url, lat, lng) {
+      if (!url || !lat || !lng) return;
+      if (this._xhr && this._xhr.readyState !== 4)  return;
+
+      var self = this;
+      var xhr = this._xhr = new XMLHttpRequest();
+
+      url = url.replace(/\{\{\s*latitude\s*\}\}/, self.latitude).replace(/\{\{\s*longitude\s*\}\}/, self.longitude);
+      xhr.open('GET', url);
+      xhr.onload = function(e) {
+        var data = self.dataMapFn(JSON.parse(this.response));
+        self.temperature = Math.round(self._convertTemperature(data.temperature,  data.dataScale, self.scale));
+        self.summary = data.summary;
+      }; xhr.send();
+      return xhr;
+    },
+
+    _getTemperatureDisplay: function(temperature, scale) {
+      if (temperature === '') return '';
+      return temperature + (this.showScale ? (scale === 'C' || scale === 'F' ? '°' : '') + scale : '');
+    },
+
+    /**
+     * Overridable function to filter and map weather service data to a single
+     * current ek weather object.
+     *
+     * Defaults to api data from http://metwit.com/weather-api/docs/resources/weather/
+     *
+     * @param {String} data Data from the weather service.
+     * @return {Number} An object with temperature, dataScale, and summary properties.
+     */
+    dataMapFn: function(data) {
+      var current = data.objects[0];
+      return {
+        temperature: current.weather.measured.temperature,
+        dataScale: 'K',
+        summary: current.weather.status + ' ' + (current.sun_altitude >= 0 ? 'day' : 'night')
+      };
+    },
+
+    _watchPosition: function(geolocate) {
+      if (!geolocate) {
+        navigator.geolocation.clearWatch(this._watchId);
+        return;
+      }
+
+      var self = this;
+      var options = {};// maximumAge: 3600000, timeout: 30000 };
+
+      function success(position) {
+        var factor = Math.pow(10, self.accuracy);
+
+        // round decimal places to eliminate excessive requests
+        self.latitude = Math.round(position.coords.latitude * factor) / factor;
+        self.longitude = Math.round(position.coords.longitude * factor) / factor;
+      }
+
+      this._watchId = navigator.geolocation.watchPosition(success, null, options);
+    },
+
+    _rafSetInterval: function(fn, delay) {
+      var start = Date.now(),
+        rafWrap = {};
+
+      function handleFrame() {
+        var now = Date.now(),
+          delta = now - start;
+
+        if(delta >= delay) {
+          fn.call();
+          start = Date.now();
+        }
+
+        rafWrap.value = requestAnimationFrame(handleFrame);
+      }
+
+      rafWrap.value = requestAnimationFrame(handleFrame);
+      return rafWrap;
+    },
+
+    _rafClearInterval: function(rafWrap) {
+      if (!rafWrap) return;
+      cancelAnimationFrame(rafWrap.value);
+    }
+
+  });
+
+})(window.Polymer);
+</script>

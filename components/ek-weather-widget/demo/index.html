@@ -1,0 +1,27 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes">
+    <title>ek-weather-widget Demo</title>
+    <script src="../../webcomponentsjs/webcomponents-lite.js"></script>
+    <link rel="import" href="../ek-weather-widget.html">
+    <style>
+      body { font-size: 1.5em; }
+      code { display: block; margin: 20px 0; }
+      ek-weather-widget {
+        font-family: 'Helvetica Neue', Arial, sans-serif;
+        color: blue;
+      }
+    </style>
+  </head>
+  <body>
+    <p>Examples:</p>
+    <code>&lt;ek-weather-widget geolocate&gt;&lt;ek-weather-interval&gt;</code>
+    <ek-weather-widget id="basic" geolocate></ek-weather-widget>
+    <code>&lt;ek-weather-widget geolocate refresh-interval="30" scale="F" show-scale&gt;&lt;ek-weather-interval&gt;</code>
+    <ek-weather-widget id="more" geolocate refresh-interval="30" scale="F" show-scale></ek-weather-widget>
+    <code>&lt;ek-weather-widget show-scale latitude="40.713" longitude="-74.006"&gt;&lt;ek-weather-interval&gt;</code>
+    <ek-weather-widget id="theWorks" show-scale latitude="40.713" longitude="-74.006" show-scale></ek-weather-widget>
+  </body>
+</html>
