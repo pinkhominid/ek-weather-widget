@@ -4,17 +4,18 @@
   "authors": [
     "pinkhominid <pinkhominid@birdbomb.com>"
   ],
-  "description": "A web component element that provides simple weather data for a geolocation.",
+  "description": "Enrichment Kit Weather Widget. A web component that provides simple weather data. Built with Polymer 1.0.",
   "keywords": [
     "web-component",
     "web-components",
     "polymer",
     "weather",
+    "temperature",
     "widget"
   ],
   "main": "ek-weather-widget.html",
   "license": "https://raw.githubusercontent.com/pinkhominid/ek-weather-widget/master/LICENSE",
-  "homepage": "https://github.com/pinkhominid/ek-weather-widget",
+  "homepage": "http://pinkhominid.github.io/ek-weather-widget",
   "ignore": [
     "/.*",
     "/test/",

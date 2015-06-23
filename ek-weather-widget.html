@@ -1,24 +1,17 @@
 <!--
 @license
-pinkhominid
-MIT License
-https://raw.githubusercontent.com/pinkhominid/ek-weather-widget/master/LICENSE
-
-TODO:
-tests
-README details
-trigger events on temperature/summary change
-switch to rafSetTimeout
-animated icons?
-loading spinner?
-click for forecast?
+Enrichment Kit Weather Widget <https://github.com/pinkhominid/ek-weather-widget>
+pinkhominid <pinkhominid@birdbomb.com>
+MIT License <https://raw.githubusercontent.com/pinkhominid/ek-weather-widget/master/LICENSE>
 -->
 <link rel="import" href="../polymer/polymer.html">
 
 <!--
-A web component element that provides simple weather data for a geolocation.
+Enrichment Kit Weather Widget
 
-    <ek-weather-widget></ek-weather-widget>
+A web component that provides simple weather data. Built with Polymer 1.0.
+
+    <ek-weather-widget geolocate></ek-weather-widget>
 
 @demo
 -->
@@ -34,7 +27,7 @@ A web component element that provides simple weather data for a geolocation.
 
   <template>
     <i class$="{{ _iconClass }}"></i>
-    <span>{{ temperature }}</span>
+    <span>{{ _getTemperatureDisplay(temperature, scale) }}</span>
   </template>
 
 </dom-module>
@@ -59,16 +52,21 @@ A web component element that provides simple weather data for a geolocation.
         observer: '_scaleChanged'
       },
 
+      showScale: Boolean,
+
       /** The interval in minutes to refresh weather data. Defaults to one hour. */
       refreshInterval: {
         type: Number,
         value: 60
       },
 
-      /** Automatically get the position via geolocation. Defaults to true. */
-      geolocate: {
-        type: Boolean,
-        value: true
+      /** Automatically get the current position via geolocation. */
+      geolocate: Boolean,
+
+      /** Decimal places to round geolocation coordinates to. Defaults to 3. */
+      accuracy: {
+        type: Number,
+        value: 3
       },
 
       /** North-south geographic coordinate. */
@@ -80,13 +78,21 @@ A web component element that provides simple weather data for a geolocation.
       /**
        * URL for the weather data provider
        * with '{{latitude}}' and '{{longitude}}' placeholders.
+       *
+       * Defaults to Metwit api (http://metwit.com/weather-api/docs/resources/weather/).
        */
       url: {
         type: String,
         value: 'https://api.metwit.com/v2/weather/?location_lat={{latitude}}&location_lng={{longitude}}'
       },
 
-      /** Mapping of weather summary to icon class. */
+      /**
+       * Mapping of weather summary to icon class.
+       *
+       * Defaults to Metwit statuses (http://metwit.com/weather-api/docs/resources/weather/)
+       * with 'day/night' appended.
+       * Defaults to Weather Icons classes (http://erikflowers.github.io/weather-icons/).
+       */
       classMap: {
         type: Object,
         value: function() {
@@ -140,7 +146,8 @@ A web component element that provides simple weather data for a geolocation.
       '_watchPosition(geolocate)',
       '_requestWeather(url, latitude, longitude)',
       '_updateIcon(summary, classMap)',
-      '_refreshIntervalChanged(refreshInterval)'
+      '_refreshIntervalChanged(refreshInterval)',
+      '_weatherChanged(temperature, scale, summary)'
     ],
 
     // Element Lifecycle
@@ -169,6 +176,7 @@ A web component element that provides simple weather data for a geolocation.
         case 'CF': return temperature * 1.8 + 32;
         case 'FK': return (temperature - 32) / 1.8 - 273.15;
         case 'FC': return (temperature - 32) / 1.8;
+        default: return '';
       }
     },
 
@@ -178,6 +186,10 @@ A web component element that provides simple weather data for a geolocation.
 
     _updateIcon: function(summary, classMap) {
       this._iconClass = classMap[summary];
+    },
+
+    _weatherChanged: function(temperature, scale, summary) {
+      this.fire('ek-weather-changed', { temperature: temperature, scale: scale, summary: summary });
     },
 
     _refreshIntervalChanged: function(interval) {
@@ -201,14 +213,20 @@ A web component element that provides simple weather data for a geolocation.
         var data = self.dataMapFn(JSON.parse(this.response));
         self.temperature = Math.round(self._convertTemperature(data.temperature,  data.dataScale, self.scale));
         self.summary = data.summary;
-      };
-      xhr.send();
+      }; xhr.send();
       return xhr;
+    },
+
+    _getTemperatureDisplay: function(temperature, scale) {
+      if (temperature === '') return '';
+      return temperature + (this.showScale ? (scale === 'C' || scale === 'F' ? '°' : '') + scale : '');
     },
 
     /**
      * Overridable function to filter and map weather service data to a single
-     * current weather object.
+     * current ek weather object.
+     *
+     * Defaults to api data from http://metwit.com/weather-api/docs/resources/weather/
      *
      * @param {String} data Data from the weather service.
      * @return {Number} An object with temperature, dataScale, and summary properties.
@@ -222,8 +240,8 @@ A web component element that provides simple weather data for a geolocation.
       };
     },
 
-    _watchPosition: function(on) {
-      if (!on) {
+    _watchPosition: function(geolocate) {
+      if (!geolocate) {
         navigator.geolocation.clearWatch(this._watchId);
         return;
       }
@@ -232,8 +250,11 @@ A web component element that provides simple weather data for a geolocation.
       var options = {};// maximumAge: 3600000, timeout: 30000 };
 
       function success(position) {
-        self.latitude = parseFloat(position.coords.latitude.toFixed(2));
-        self.longitude = parseFloat(position.coords.longitude.toFixed(2));
+        var factor = Math.pow(10, self.accuracy);
+
+        // round decimal places to eliminate excessive requests
+        self.latitude = Math.round(position.coords.latitude * factor) / factor;
+        self.longitude = Math.round(position.coords.longitude * factor) / factor;
       }
 
       this._watchId = navigator.geolocation.watchPosition(success, null, options);
